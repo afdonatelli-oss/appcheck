@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Consulta WM"/>
+<meta name="theme-color" content="#0a5c47"/>
+<title>Consulta WM</title>
+<link rel="manifest" href="manifest.json"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --green-dark:   #0a5c47;
+  --green-mid:    #0F6E56;
+  --green-light:  #1D9E75;
+  --green-pale:   #E1F5EE;
+  --green-faint:  #f0faf6;
+  --amber-dark:   #633806;
+  --amber-mid:    #BA7517;
+  --amber-pale:   #FAEEDA;
+  --red-mid:      #993C1D;
+  --red-pale:     #FAECE7;
+  --gray-100:     #f4f4f2;
+  --gray-200:     #e8e8e4;
+  --gray-400:     #a0a09a;
+  --gray-700:     #444441;
+  --gray-900:     #1a1a18;
+  --white:        #ffffff;
+  --radius-sm:    8px;
+  --radius-md:    12px;
+  --radius-lg:    18px;
+  --font-main:    'Sora', sans-serif;
+  --font-mono:    'JetBrains Mono', monospace;
+  --safe-bottom:  env(safe-area-inset-bottom, 0px);
+  --safe-top:     env(safe-area-inset-top, 0px);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  height: 100%;
+  font-family: var(--font-main);
+  background: var(--gray-100);
+  color: var(--gray-900);
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  max-width: 480px;
+  margin: 0 auto;
+  background: var(--white);
+  position: relative;
+  overflow: hidden;
+}
+
+/* ── TOPBAR ─────────────────────────────────────────── */
+.topbar {
+  background: var(--green-dark);
+  padding: calc(var(--safe-top) + 14px) 18px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+}
+.topbar-logo {
+  width: 38px; height: 38px;
+  background: rgba(255,255,255,0.15);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+}
+.topbar-info { flex: 1; }
+.topbar-info h1 { font-size: 16px; font-weight: 700; color: #fff; letter-spacing: 0.01em; }
+.topbar-info p  { font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 1px; }
+.topbar-sync {
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.12);
+  border: none;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background 0.15s;
+}
+.topbar-sync:active { background: rgba(255,255,255,0.25); }
+.topbar-sync.spinning { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── TABS ────────────────────────────────────────────── */
+.tabs {
+  display: flex;
+  background: var(--white);
+  border-bottom: 1px solid var(--gray-200);
+  flex-shrink: 0;
+}
+.tab {
+  flex: 1;
+  padding: 12px 0 10px;
+  font-family: var(--font-main);
+  font-size: 12px;
+  font-weight: 500;
+  background: none;
+  border: none;
+  border-bottom: 2.5px solid transparent;
+  color: var(--gray-400);
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+}
+.tab .tab-icon { font-size: 18px; }
+.tab.active { color: var(--green-mid); border-bottom-color: var(--green-mid); }
+
+/* ── SCREENS ─────────────────────────────────────────── */
+.screen { display: none; flex-direction: column; flex: 1; overflow-y: auto; padding: 16px; gap: 14px; padding-bottom: calc(16px + var(--safe-bottom)); }
+.screen.active { display: flex; }
+
+/* ── CARDS ───────────────────────────────────────────── */
+.card {
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  padding: 16px;
+}
+.card-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gray-400);
+  margin-bottom: 12px;
+}
+
+/* ── RESULT ──────────────────────────────────────────── */
+#result-area { min-height: 0; }
+
+.result-box {
+  border-radius: var(--radius-lg);
+  padding: 22px 18px;
+  text-align: center;
+  animation: popIn 0.25s cubic-bezier(0.175,0.885,0.32,1.275);
+}
+@keyframes popIn { from { transform: scale(0.88); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+.result-found    { background: var(--green-pale); border: 1.5px solid #5DCAA5; }
+.result-pending  { background: var(--amber-pale); border: 1.5px solid #FAC775; }
+.result-notfound { background: var(--red-pale);   border: 1.5px solid #F0997B; }
+
+.result-icon  { font-size: 36px; margin-bottom: 6px; }
+.result-op    { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; color: var(--green-dark); margin-bottom: 6px; }
+.result-addr  { font-family: var(--font-mono); font-size: 30px; font-weight: 600; color: #04342C; line-height: 1.1; }
+.result-sig   { font-size: 13px; color: var(--green-mid); margin-top: 6px; }
+
+.result-pending .result-op   { color: var(--amber-dark); }
+.result-pending .result-addr { color: var(--amber-dark); font-size: 18px; }
+.result-pending .result-sig  { color: var(--amber-mid); }
+.result-notfound .result-op  { color: var(--red-mid); }
+.result-notfound .result-addr{ color: var(--red-mid); font-size: 18px; }
+
+/* ── CAMERA ──────────────────────────────────────────── */
+#scanner-wrap {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: #000;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  position: relative;
+  max-height: 280px;
+}
+#video { width: 100%; height: 100%; object-fit: cover; display: none; }
+#canvas-qr { display: none; }
+
+.scan-overlay {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none;
+}
+.scan-frame {
+  width: 56%; aspect-ratio: 1;
+  border: 2px solid #5DCAA5;
+  border-radius: 14px;
+  box-shadow: 0 0 0 9999px rgba(0,0,0,0.5);
+}
+.scan-line {
+  position: absolute;
+  width: 56%; height: 2px;
+  background: linear-gradient(90deg, transparent, #5DCAA5, transparent);
+  animation: scanline 2s ease-in-out infinite;
+}
+@keyframes scanline {
+  0%,100% { top: 22%; }
+  50%      { top: 76%; }
+}
+
+#cam-placeholder {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 10px; padding: 20px; text-align: center;
+}
+#cam-placeholder .ph-icon { font-size: 40px; opacity: 0.5; }
+#cam-placeholder p { font-size: 13px; color: rgba(255,255,255,0.55); }
+
+/* ── BUTTONS ─────────────────────────────────────────── */
+.btn {
+  width: 100%; padding: 13px;
+  font-family: var(--font-main); font-size: 14px; font-weight: 600;
+  border: none; border-radius: var(--radius-sm);
+  cursor: pointer; transition: all 0.15s;
+}
+.btn:active { transform: scale(0.98); }
+.btn-primary { background: var(--green-mid); color: #fff; }
+.btn-primary:hover { background: var(--green-dark); }
+.btn-danger  { background: var(--red-pale); color: var(--red-mid); }
+.btn-outline { background: transparent; color: var(--green-mid); border: 1.5px solid var(--green-mid); }
+
+/* ── MANUAL SEARCH ───────────────────────────────────── */
+.search-row { display: flex; gap: 8px; }
+.search-row input {
+  flex: 1; font-family: var(--font-mono); font-size: 15px;
+  padding: 11px 14px;
+  background: var(--gray-100); border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm); color: var(--gray-900);
+  outline: none; transition: border 0.15s;
+}
+.search-row input:focus { border-color: var(--green-light); background: var(--white); }
+.search-row button {
+  padding: 11px 18px;
+  background: var(--green-mid); color: #fff;
+  font-family: var(--font-main); font-size: 14px; font-weight: 600;
+  border: none; border-radius: var(--radius-sm); cursor: pointer;
+  transition: background 0.15s;
+}
+.search-row button:active { background: var(--green-dark); }
+
+/* ── CONFIG SCREEN ───────────────────────────────────── */
+.config-field { margin-bottom: 14px; }
+.config-field label {
+  display: block; font-size: 12px; font-weight: 600;
+  color: var(--gray-700); margin-bottom: 6px;
+}
+.config-field input, .config-field select {
+  width: 100%; font-family: var(--font-main); font-size: 13px;
+  padding: 11px 14px;
+  background: var(--gray-100); border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm); color: var(--gray-900);
+  outline: none; transition: border 0.15s;
+}
+.config-field input:focus { border-color: var(--green-light); background: var(--white); }
+.config-hint {
+  font-size: 11px; color: var(--gray-400);
+  margin-top: 5px; line-height: 1.5;
+}
+
+/* ── STATUS BADGE ────────────────────────────────────── */
+.badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 11px; border-radius: 20px;
+  font-size: 12px; font-weight: 600;
+}
+.badge-ok  { background: var(--green-pale); color: var(--green-dark); }
+.badge-err { background: var(--red-pale);   color: var(--red-mid); }
+.badge-inf { background: #E6F1FB; color: #0C447C; }
+.badge-wrn { background: var(--amber-pale); color: var(--amber-dark); }
+
+/* ── STATS ───────────────────────────────────────────── */
+.stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stat-cell {
+  background: var(--green-faint);
+  border-radius: var(--radius-sm);
+  padding: 12px 8px; text-align: center;
+}
+.stat-n { font-size: 22px; font-weight: 700; color: var(--green-mid); }
+.stat-l { font-size: 10px; color: var(--gray-400); margin-top: 2px; font-weight: 500; }
+
+/* ── TABLE PREVIEW ───────────────────────────────────── */
+.tbl-wrap { overflow-x: auto; margin-top: 10px; border-radius: var(--radius-sm); border: 1px solid var(--gray-200); }
+.tbl-wrap table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 11px; }
+.tbl-wrap th { background: var(--gray-100); color: var(--gray-400); padding: 6px 10px; text-align: left; font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; }
+.tbl-wrap td { padding: 6px 10px; border-top: 1px solid var(--gray-200); color: var(--gray-700); white-space: nowrap; }
+.tbl-wrap tr:hover td { background: var(--green-faint); }
+
+/* ── LOADING ─────────────────────────────────────────── */
+.loading-bar {
+  height: 3px; background: var(--green-pale);
+  position: relative; overflow: hidden; border-radius: 2px;
+  margin-top: 10px;
+}
+.loading-bar::after {
+  content: ''; position: absolute; inset: 0;
+  background: var(--green-light);
+  animation: loadbar 1.2s ease-in-out infinite;
+}
+@keyframes loadbar {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
+/* ── TOAST ───────────────────────────────────────────── */
+#toast {
+  position: fixed; bottom: calc(24px + var(--safe-bottom)); left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: var(--gray-900); color: #fff;
+  padding: 10px 20px; border-radius: 24px;
+  font-size: 13px; font-weight: 500;
+  white-space: nowrap; z-index: 999;
+  transition: transform 0.3s cubic-bezier(0.175,0.885,0.32,1.275);
+  pointer-events: none;
+}
+#toast.show { transform: translateX(-50%) translateY(0); }
+
+/* ── DIVIDER ─────────────────────────────────────────── */
+.divider { display: flex; align-items: center; gap: 10px; color: var(--gray-400); font-size: 11px; }
+.divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--gray-200); }
+
+/* ── SHAREPOINT HELP ─────────────────────────────────── */
+.steps { list-style: none; counter-reset: steps; display: flex; flex-direction: column; gap: 10px; }
+.steps li {
+  counter-increment: steps;
+  display: flex; align-items: flex-start; gap: 10px;
+  font-size: 12px; color: var(--gray-700); line-height: 1.5;
+}
+.steps li::before {
+  content: counter(steps);
+  min-width: 22px; height: 22px;
+  background: var(--green-mid); color: #fff;
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; flex-shrink: 0; margin-top: 1px;
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-logo">📦</div>
+    <div class="topbar-info">
+      <h1>Consulta WM</h1>
+      <p id="topbar-status">Nenhuma planilha carregada</p>
+    </div>
+    <button class="topbar-sync" id="btn-sync" onclick="sincronizar()" title="Sincronizar agora">🔄</button>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('scan')">
+      <span class="tab-icon">📷</span> Escanear
+    </button>
+    <button class="tab" onclick="switchTab('config')">
+      <span class="tab-icon">⚙️</span> Configurar
+    </button>
+    <button class="tab" onclick="switchTab('dados')">
+      <span class="tab-icon">📊</span> Dados
+    </button>
+  </div>
+
+  <!-- ══ TELA: ESCANEAR ══ -->
+  <div id="screen-scan" class="screen active">
+
+    <div id="result-area"></div>
+
+    <div class="card">
+      <div class="card-label">Câmera — QR Code da OP</div>
+      <div id="scanner-wrap">
+        <video id="video" autoplay playsinline muted></video>
+        <canvas id="canvas-qr"></canvas>
+        <div class="scan-overlay">
+          <div class="scan-frame"></div>
+          <div class="scan-line"></div>
+        </div>
+        <div id="cam-placeholder">
+          <div class="ph-icon">📷</div>
+          <p>Toque em "Iniciar câmera"<br>para escanear o QR Code</p>
+        </div>
+      </div>
+      <div style="margin-top:10px; display:flex; gap:8px;">
+        <button class="btn btn-primary" id="btn-cam" onclick="toggleCamera()" style="flex:1">Iniciar câmera</button>
+      </div>
+    </div>
+
+    <div class="divider">ou</div>
+
+    <div class="card">
+      <div class="card-label">Busca manual por número da OP</div>
+      <div class="search-row">
+        <input type="text" id="manual-op" placeholder="Ex: OP-2024-0045" inputmode="text" autocomplete="off"/>
+        <button onclick="buscaManual()">Buscar</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══ TELA: CONFIGURAR ══ -->
+  <div id="screen-config" class="screen">
+
+    <div class="card">
+      <div class="card-label">Integração SharePoint</div>
+
+      <div class="config-field">
+        <label>URL de download direto da planilha</label>
+        <input type="url" id="cfg-url" placeholder="https://empresa.sharepoint.com/..."/>
+        <p class="config-hint">Cole aqui o link de download direto do arquivo .xlsx no SharePoint. Veja as instruções abaixo.</p>
+      </div>
+
+      <div class="config-field">
+        <label>Intervalo de sincronização automática</label>
+        <select id="cfg-interval">
+          <option value="0">Somente manual (botão 🔄)</option>
+          <option value="5">A cada 5 minutos</option>
+          <option value="10" selected>A cada 10 minutos</option>
+          <option value="30">A cada 30 minutos</option>
+          <option value="60">A cada 1 hora</option>
+        </select>
+      </div>
+
+      <button class="btn btn-primary" onclick="salvarConfig()">💾 Salvar configuração</button>
+      <div style="margin-top:8px;">
+        <button class="btn btn-outline" onclick="sincronizar()">🔄 Testar conexão agora</button>
+      </div>
+      <div id="config-status" style="margin-top:10px;"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Como obter o link do SharePoint</div>
+      <ol class="steps">
+        <li>Abra o SharePoint e navegue até o arquivo <strong>.xlsx</strong></li>
+        <li>Clique nos <strong>três pontos (…)</strong> ao lado do arquivo</li>
+        <li>Selecione <strong>"Copiar link"</strong></li>
+        <li>Cole o link aqui e substitua o trecho final por <code style="font-family:var(--font-mono);font-size:11px;background:var(--gray-100);padding:1px 5px;border-radius:4px;">download=1</code></li>
+        <li>O link final deve terminar com <code style="font-family:var(--font-mono);font-size:11px;background:var(--gray-100);padding:1px 5px;border-radius:4px;">&amp;download=1</code></li>
+      </ol>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Upload manual (alternativo)</div>
+      <p style="font-size:12px;color:var(--gray-400);margin-bottom:10px;">Se o SharePoint não estiver disponível, faça upload direto do celular.</p>
+      <label style="display:block; border:1.5px dashed var(--green-light); border-radius:var(--radius-sm); padding:18px; text-align:center; cursor:pointer;" onclick="document.getElementById('file-input').click()">
+        <div style="font-size:28px;margin-bottom:6px;">📂</div>
+        <div style="font-size:13px;font-weight:600;color:var(--green-mid);">Selecionar arquivo .xlsx / .csv</div>
+      </label>
+      <input type="file" id="file-input" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleUpload(event)"/>
+      <div id="upload-status" style="margin-top:8px;"></div>
+    </div>
+
+  </div>
+
+  <!-- ══ TELA: DADOS ══ -->
+  <div id="screen-dados" class="screen">
+
+    <div id="dados-vazio" class="card" style="text-align:center;padding:32px 16px;">
+      <div style="font-size:40px;margin-bottom:10px;">📋</div>
+      <p style="font-size:14px;font-weight:600;color:var(--gray-700);">Nenhum dado carregado</p>
+      <p style="font-size:12px;color:var(--gray-400);margin-top:6px;">Configure o SharePoint ou faça upload de uma planilha.</p>
+    </div>
+
+    <div id="dados-conteudo" style="display:none; flex-direction:column; gap:14px;">
+      <div class="card">
+        <div class="card-label">Resumo</div>
+        <div class="stats-row" id="stats-row"></div>
+        <div style="margin-top:10px;" id="ultima-sync"></div>
+      </div>
+      <div class="card">
+        <div class="card-label">Prévia dos registros</div>
+        <div class="tbl-wrap" id="tbl-preview"></div>
+        <p id="tbl-more" style="font-size:11px;color:var(--gray-400);margin-top:8px;"></p>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+<script>
+// ── STATE ────────────────────────────────────────────────
+let db = {};
+let cameraOn = false;
+let stream = null;
+let scanTimer = null;
+let cooldown = false;
+let lastScanned = null;
+let syncTimer = null;
+let config = { url: '', interval: 10 };
+
+// ── INIT ─────────────────────────────────────────────────
+(function init() {
+  const savedCfg = localStorage.getItem('wm-config');
+  if (savedCfg) config = JSON.parse(savedCfg);
+
+  const savedDb = localStorage.getItem('wm-db');
+  if (savedDb) {
+    db = JSON.parse(savedDb);
+    atualizarUI();
+  }
+
+  document.getElementById('cfg-url').value = config.url || '';
+  document.getElementById('cfg-interval').value = config.interval || 10;
+
+  if (config.url) iniciarSyncAuto();
+  if (config.url && Object.keys(db).length === 0) sincronizar();
+
+  document.getElementById('manual-op').addEventListener('keydown', e => { if (e.key === 'Enter') buscaManual(); });
+})();
+
+// ── TABS ─────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((b, i) => {
+    b.classList.toggle('active', ['scan','config','dados'][i] === name);
+  });
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+}
+
+// ── CONFIG ───────────────────────────────────────────────
+function salvarConfig() {
+  config.url = document.getElementById('cfg-url').value.trim();
+  config.interval = parseInt(document.getElementById('cfg-interval').value);
+  localStorage.setItem('wm-config', JSON.stringify(config));
+  iniciarSyncAuto();
+  showStatus('config-status', 'ok', '✔ Configuração salva');
+  if (config.url) sincronizar();
+}
+
+function iniciarSyncAuto() {
+  clearInterval(syncTimer);
+  if (config.interval > 0) {
+    syncTimer = setInterval(sincronizar, config.interval * 60 * 1000);
+  }
+}
+
+// ── SYNC SHAREPOINT ───────────────────────────────────────
+async function sincronizar() {
+  if (!config.url) {
+    showStatus('config-status', 'err', '⚠ Configure a URL do SharePoint primeiro');
+    return;
+  }
+  const btn = document.getElementById('btn-sync');
+  btn.classList.add('spinning');
+
+  try {
+    // Use a CORS proxy for the SharePoint URL
+    const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(config.url);
+    const res = await fetch(proxyUrl);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const blob = await res.blob();
+    const buf = await blob.arrayBuffer();
+    processarXLSX(buf);
+    showStatus('config-status', 'ok', '✔ Sincronizado com SharePoint');
+    toast('Planilha atualizada ✔');
+  } catch(e) {
+    showStatus('config-status', 'err', '✘ Falha na conexão: ' + e.message);
+    toast('Erro ao sincronizar');
+  } finally {
+    btn.classList.remove('spinning');
+  }
+}
+
+// ── UPLOAD MANUAL ────────────────────────────────────────
+function handleUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    processarXLSX(ev.target.result);
+    showStatus('upload-status', 'ok', '✔ ' + file.name + ' carregado');
+    toast('Planilha carregada ✔');
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ── PROCESSAR XLSX ────────────────────────────────────────
+function processarXLSX(buf) {
+  const wb = XLSX.read(buf, { type: 'array' });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+  db = {};
+  rows.forEach(r => {
+    const cols = Object.keys(r);
+    const op    = String(r[cols[0]] || '').trim();
+    const sigla = String(r[cols[1]] || '').trim();
+    const wm    = String(r[cols[2]] || '').trim();
+    if (op) db[op] = { sigla, wm, row: r };
+  });
+
+  db.__meta = {
+    total: Object.keys(db).length - 1,
+    comWM: Object.values(db).filter(v => v && v.wm).length,
+    cols: Object.keys(rows[0] || {}),
+    preview: rows.slice(0, 8),
+    updated: new Date().toISOString()
+  };
+
+  localStorage.setItem('wm-db', JSON.stringify(db));
+  atualizarUI();
+}
+
+// ── UI UPDATE ─────────────────────────────────────────────
+function atualizarUI() {
+  const meta = db.__meta;
+  if (!meta) return;
+
+  const total = meta.total;
+  const comWM = meta.comWM;
+  const semWM = total - comWM;
+
+  // topbar
+  document.getElementById('topbar-status').textContent = total + ' OPs • ' + comWM + ' endereçadas';
+
+  // dados screen
+  document.getElementById('dados-vazio').style.display = 'none';
+  const dc = document.getElementById('dados-conteudo');
+  dc.style.display = 'flex';
+
+  document.getElementById('stats-row').innerHTML = `
+    <div class="stat-cell"><div class="stat-n">${total}</div><div class="stat-l">Total OPs</div></div>
+    <div class="stat-cell"><div class="stat-n">${comWM}</div><div class="stat-l">Com endereço</div></div>
+    <div class="stat-cell" style="${semWM > 0 ? 'background:var(--amber-pale)' : ''}">
+      <div class="stat-n" style="${semWM > 0 ? 'color:var(--amber-mid)' : ''}">${semWM}</div>
+      <div class="stat-l">Sem endereço</div>
+    </div>`;
+
+  const dt = new Date(meta.updated);
+  document.getElementById('ultima-sync').innerHTML =
+    `<span class="badge badge-inf">🕐 Atualizado: ${dt.toLocaleString('pt-BR')}</span>`;
+
+  // table preview
+  const cols = meta.cols.slice(0, 3);
+  let html = '<table><tr>' + cols.map(c => `<th>${c}</th>`).join('') + '</tr>';
+  meta.preview.forEach(r => {
+    html += '<tr>' + cols.map(c => `<td>${r[c] || '—'}</td>`).join('') + '</tr>';
+  });
+  html += '</table>';
+  document.getElementById('tbl-preview').innerHTML = html;
+  if (total > 8) document.getElementById('tbl-more').textContent = `… e mais ${total - 8} registros`;
+}
+
+// ── BUSCA ─────────────────────────────────────────────────
+function buscarOP(op) {
+  op = String(op || '').trim();
+  if (!op) return;
+
+  if (Object.keys(db).length <= 1) {
+    setResult('notfound', '📋', op, 'Planilha não carregada', 'Configure o SharePoint ou faça upload');
+    return;
+  }
+
+  const d = db[op];
+  if (d && d.wm) {
+    setResult('found', '📍', op, d.wm, d.sigla ? 'Sigla: ' + d.sigla : '');
+  } else if (d) {
+    setResult('pending', '⏳', op, 'Endereço pendente', 'Setor B ainda não preencheu o WM');
+  } else {
+    setResult('notfound', '❌', op, 'OP não encontrada', 'Verifique se a planilha está atualizada');
+  }
+}
+
+function setResult(type, icon, op, addr, sub) {
+  document.getElementById('result-area').innerHTML = `
+    <div class="result-box result-${type}">
+      <div class="result-icon">${icon}</div>
+      <div class="result-op">OP ${op}</div>
+      <div class="result-addr">${addr}</div>
+      ${sub ? `<div class="result-sig">${sub}</div>` : ''}
+    </div>`;
+}
+
+function buscaManual() {
+  buscarOP(document.getElementById('manual-op').value);
+}
+
+// ── CAMERA / QR ───────────────────────────────────────────
+async function toggleCamera() {
+  if (cameraOn) { stopCamera(); return; }
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 1280 } }
+    });
+    const v = document.getElementById('video');
+    v.srcObject = stream;
+    v.style.display = 'block';
+    document.getElementById('cam-placeholder').style.display = 'none';
+    await v.play();
+    cameraOn = true;
+    document.getElementById('btn-cam').textContent = 'Parar câmera';
+    scanTimer = setInterval(scanFrame, 200);
+  } catch(e) {
+    toast('Câmera indisponível: ' + e.message);
+  }
+}
+
+function stopCamera() {
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  stream = null; cameraOn = false;
+  clearInterval(scanTimer);
+  document.getElementById('video').style.display = 'none';
+  document.getElementById('cam-placeholder').style.display = 'flex';
+  document.getElementById('btn-cam').textContent = 'Iniciar câmera';
+}
+
+function scanFrame() {
+  const v = document.getElementById('video');
+  const c = document.getElementById('canvas-qr');
+  if (!v.videoWidth) return;
+  c.width = v.videoWidth; c.height = v.videoHeight;
+  const ctx = c.getContext('2d');
+  ctx.drawImage(v, 0, 0);
+  const img = ctx.getImageData(0, 0, c.width, c.height);
+  const qr  = jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' });
+  if (qr && qr.data && !cooldown) {
+    const op = qr.data.trim();
+    if (op !== lastScanned) {
+      lastScanned = op;
+      document.getElementById('manual-op').value = op;
+      buscarOP(op);
+      cooldown = true;
+      setTimeout(() => { cooldown = false; }, 3500);
+    }
+  }
+}
+
+// ── HELPERS ───────────────────────────────────────────────
+function showStatus(id, type, msg) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const map = { ok: 'badge-ok', err: 'badge-err', inf: 'badge-inf', wrn: 'badge-wrn' };
+  el.innerHTML = `<span class="badge ${map[type] || 'badge-inf'}">${msg}</span>`;
+}
+
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+// ── SERVICE WORKER ────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
