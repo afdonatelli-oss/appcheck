@@ -146,26 +146,51 @@ html, body {
 
 .result-box {
   border-radius: var(--radius-lg);
-  padding: 22px 18px;
+  padding: 10px 16px 16px;
   text-align: center;
   animation: popIn 0.25s cubic-bezier(0.175,0.885,0.32,1.275);
 }
 @keyframes popIn { from { transform: scale(0.88); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
-.result-found    { background: var(--green-pale); border: 1.5px solid #5DCAA5; }
+.result-found    { background: var(--green-dark); border: 2px solid #0a5c47; }
 .result-pending  { background: var(--amber-pale); border: 1.5px solid #FAC775; }
 .result-notfound { background: var(--red-pale);   border: 1.5px solid #F0997B; }
 
-.result-icon  { font-size: 36px; margin-bottom: 6px; }
-.result-op    { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; color: var(--green-dark); margin-bottom: 6px; }
-.result-addr  { font-family: var(--font-mono); font-size: 30px; font-weight: 600; color: #04342C; line-height: 1.1; }
-.result-sig   { font-size: 13px; color: var(--green-mid); margin-top: 6px; }
+/* Label pequena acima */
+.result-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.14em;
+  text-transform: uppercase; margin-bottom: 4px; opacity: 0.7;
+}
+/* ENDEREÇO WM — herói da tela */
+.result-wm {
+  font-family: var(--font-mono);
+  font-size: 52px; font-weight: 700; line-height: 1;
+  letter-spacing: 0.02em;
+  margin: 8px 0 6px;
+}
+/* OP abaixo, pequena */
+.result-op-row {
+  font-size: 12px; font-weight: 500; opacity: 0.7; margin-top: 4px;
+}
+.result-sig { font-size: 12px; margin-top: 4px; opacity: 0.65; }
 
-.result-pending .result-op   { color: var(--amber-dark); }
-.result-pending .result-addr { color: var(--amber-dark); font-size: 18px; }
-.result-pending .result-sig  { color: var(--amber-mid); }
-.result-notfound .result-op  { color: var(--red-mid); }
-.result-notfound .result-addr{ color: var(--red-mid); font-size: 18px; }
+/* Cores found */
+.result-found .result-label  { color: rgba(255,255,255,0.7); }
+.result-found .result-wm     { color: #ffffff; }
+.result-found .result-op-row { color: rgba(255,255,255,0.7); }
+.result-found .result-sig    { color: rgba(255,255,255,0.6); }
+
+/* Cores pending */
+.result-pending .result-label  { color: var(--amber-dark); }
+.result-pending .result-wm     { color: var(--amber-dark); font-size: 22px; margin: 12px 0; }
+.result-pending .result-op-row { color: var(--amber-mid); }
+.result-pending .result-sig    { color: var(--amber-mid); }
+
+/* Cores notfound */
+.result-notfound .result-label  { color: var(--red-mid); }
+.result-notfound .result-wm     { color: var(--red-mid); font-size: 20px; margin: 12px 0; }
+.result-notfound .result-op-row { color: var(--red-mid); opacity: 0.7; }
+.result-notfound .result-sig    { color: var(--red-mid); }
 
 /* ── CAMERA ──────────────────────────────────────────── */
 #scanner-wrap {
@@ -651,31 +676,83 @@ function atualizarUI() {
 }
 
 // ── BUSCA ─────────────────────────────────────────────────
-function buscarOP(op) {
-  op = String(op || '').trim();
-  if (!op) return;
+// Extrai o número da OP de qualquer conteúdo de QR Code.
+// Tenta: valor exato → valor em parâmetro URL → regex de padrão OP → primeiro token.
+function extrairOP(raw) {
+  raw = String(raw || '').trim();
+
+  // 1. Tentativa exata: chave existe no db
+  if (db[raw]) return raw;
+
+  // 2. Parâmetro de URL (ex: https://erp.empresa.com/op?id=OP-2024-001)
+  try {
+    const url = new URL(raw);
+    for (const [, v] of url.searchParams) {
+      if (db[v]) return v;
+    }
+    // tenta o pathname final
+    const seg = url.pathname.split('/').pop();
+    if (seg && db[seg]) return seg;
+  } catch(_) {}
+
+  // 3. Regex: padrões comuns de número de OP
+  const patterns = [
+    /OP[-_]?\d+[-_\d]*/i,
+    /O\.P\.?\s*\d+/i,
+    /\bOP\s*:?\s*([\w-]+)/i,
+    /ordem[_\s-]?de[_\s-]?produ[çc][aã]o[_\s:]*([^\s,;]+)/i,
+  ];
+  for (const re of patterns) {
+    const m = raw.match(re);
+    if (m) {
+      const candidate = (m[1] || m[0]).trim();
+      if (db[candidate]) return candidate;
+      // tenta sem prefixo
+      const num = candidate.replace(/^OP[-_]?/i, '');
+      if (db[num]) return num;
+    }
+  }
+
+  // 4. Tenta cada token separado por vírgula, ponto-e-vírgula, pipe, tab
+  const tokens = raw.split(/[,;|\t\n]/);
+  for (const t of tokens) {
+    const clean = t.trim();
+    if (db[clean]) return clean;
+  }
+
+  // 5. Retorna o raw original para exibir "não encontrada"
+  return raw;
+}
+
+function buscarOP(raw) {
+  raw = String(raw || '').trim();
+  if (!raw) return;
 
   if (Object.keys(db).length <= 1) {
-    setResult('notfound', '📋', op, 'Planilha não carregada', 'Configure o SharePoint ou faça upload');
+    setResult('notfound', raw, 'Planilha não carregada', 'Acesse ⚙️ Configurar e faça a sincronização');
     return;
   }
 
-  const d = db[op];
+  const op = extrairOP(raw);
+  const d  = db[op];
+
   if (d && d.wm) {
-    setResult('found', '📍', op, d.wm, d.sigla ? 'Sigla: ' + d.sigla : '');
+    setResult('found', op, d.wm, d.sigla || '');
   } else if (d) {
-    setResult('pending', '⏳', op, 'Endereço pendente', 'Setor B ainda não preencheu o WM');
+    setResult('pending', op, 'Endereço pendente', 'Setor B ainda não preencheu o WM');
   } else {
-    setResult('notfound', '❌', op, 'OP não encontrada', 'Verifique se a planilha está atualizada');
+    setResult('notfound', op, 'OP não encontrada', 'Verifique se a planilha está atualizada');
   }
 }
 
-function setResult(type, icon, op, addr, sub) {
+function setResult(type, op, wm, sub) {
+  const icons = { found: '📍', pending: '⏳', notfound: '❌' };
+  const labels = { found: 'Endereço de destino', pending: 'Endereço WM', notfound: 'Endereço WM' };
   document.getElementById('result-area').innerHTML = `
     <div class="result-box result-${type}">
-      <div class="result-icon">${icon}</div>
-      <div class="result-op">OP ${op}</div>
-      <div class="result-addr">${addr}</div>
+      <div class="result-label">${labels[type]}</div>
+      <div class="result-wm">${wm}</div>
+      <div class="result-op-row">${icons[type]} OP: ${op}</div>
       ${sub ? `<div class="result-sig">${sub}</div>` : ''}
     </div>`;
 }
